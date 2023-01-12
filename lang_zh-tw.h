@@ -9,7 +9,7 @@
 	L"\r\n"
 	L"三：你也能使用Command Line來處理喔！ （記得用\"quotes\"取代空格）\r\n"
 	L"\r\n"
-	L"請放心：無論你怎麼做，原始檔案都不會被修改。轉存成功的檔案將會存在原始檔案位置，並新增為 *_photo.jpg 和 *_video.mp4。\r\n"
+	L"請放心：無論你怎麼做，原始檔案都不會被修改。轉存成功的檔案將會存在原始檔案位置，並新增為 *_photo.jpg/heic 和 *.mp4。\r\n"
 	L"\r\n"
 	L"GUI軟體由Chupi383撰寫，軟體內核由XDA forums的goofwear撰寫，Andylain翻譯正體中文，詳細中文使用教學請上「安迪連碎碎念」。"
 ,
@@ -41,7 +41,7 @@
 	L""
 ,
 /* VIDEO_APPEND */
-	L"_video"
+	L""
 ,
 /* VIDEO_NO_APPEND */
 	L""

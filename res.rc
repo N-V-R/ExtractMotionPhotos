@@ -1,21 +1,21 @@
 ﻿1 ICON "icon_multires.ico"
 
 1 VERSIONINFO
-FILEVERSION     2,2,0,0
-PRODUCTVERSION  2,2,0,0
+FILEVERSION     3,0,0,0
+PRODUCTVERSION  3,0,0,0
 {
   BLOCK "StringFileInfo"
   {
     BLOCK "040904E4"
     {
       VALUE "CompanyName", "Chupi383"
-      VALUE "FileDescription", "Extract Samsung Motion Photos to jpg and mp4"
-      VALUE "FileVersion", "2.2"
+      VALUE "FileDescription", "Extract Samsung Motion Photos to jpg/heic and mp4"
+      VALUE "FileVersion", "3.0"
       VALUE "InternalName", "ExtractMotionPhotos"
       VALUE "LegalCopyright", "Chupi383"
       VALUE "OriginalFilename", "ExtractMotionPhotos.exe"
       VALUE "ProductName", "Motion Photo Batch Extractor Utility"
-      VALUE "ProductVersion", "2.2"
+      VALUE "ProductVersion", "3.0"
     }
   }
   BLOCK "VarFileInfo"

@@ -3,13 +3,13 @@
 /* USAGE */
 	L"You can use this program 3 different ways:\r\n"
 	L"\r\n"
-	L"GUI USE: Just run it. You'll get an file-open dialog where you can open .jpg files. Use ctrl or shift or drag to select more than one.\r\n"
+	L"GUI USE: Just run it. You'll get an file-open dialog where you can open .jpg/heic files. Use ctrl or shift or drag to select more than one.\r\n"
 	L"\r\n"
 	L"DRAG & DROP USE: Drag one or more motion photos onto the icon for this exe.\r\n"
 	L"\r\n"
 	L"COMMAND LINE USE: Run this program with one or more motion photo file names as arguments. Remember to use \"quotes\" if there are spaces in the names.\r\n"
 	L"\r\n"
-	L"Any way you run it, the original files will not be modified. The extracted photo and video will be stored in *_photo.jpg and *_video.mp4 where * is the name of the original file, minus the .jpg extension.\r\n"
+	L"Any way you run it, the original files will not be modified. The extracted photo and video will be stored in *_photo.jpg/heic and *.mp4 where * is the name of the original file, minus the .jpg extension.\r\n"
 	L"\r\n"
 	L"Coded by Chupi383. All credit for the method goes to goofwear at the XDA forums. I've just ported their .bat file to plain C and Win32."
 ,
@@ -41,7 +41,7 @@
 	L""
 ,
 /* VIDEO_APPEND */
-	L"_video"
+	L""
 ,
 /* VIDEO_NO_APPEND */
 	L""

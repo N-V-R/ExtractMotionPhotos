@@ -23,6 +23,11 @@ int msgLvl = 2;
 	else if(msgLvl == 1) wprintf(L"%s\r\n", (msg)); \
 } while(0)
 
+const unsigned char magicV1[] = {
+	0x4D, 0x6F, 0x74, 0x69, 0x6F, 0x6E, 0x50, 0x68,
+	0x6F, 0x74, 0x6F, 0x5F, 0x44, 0x61, 0x74, 0x61 };
+const unsigned char magicV2[] = { 0x6D, 0x70, 0x76, 0x64 };
+
 //Show usage info
 void usage(void) {
 	ALERT(TR(USAGE), TR(APP_TITLE), MB_OK);
@@ -143,23 +148,12 @@ void initSearch(const unsigned char *magic, int magiclen, char *d1, char *d2) {
 }
 
 //Boyer-Moore string search -- this is considerably faster than a plain linear search
-SSIZE_T findMagic(unsigned char *buf, SSIZE_T size) {
-	const unsigned char magic[] = {
-		0x4D, 0x6F, 0x74, 0x69, 0x6F, 0x6E, 0x50, 0x68,
-		0x6F, 0x74, 0x6F, 0x5F, 0x44, 0x61, 0x74, 0x61 };
-	static char d1[256];
-	static char d2[sizeof(magic)];
-	static BOOL inited = FALSE;
+SSIZE_T findMagic(const unsigned char *magic, int magiclen, char *d1, char *d2, unsigned char *buf, SSIZE_T size) {
 	SSIZE_T i, j;
 
-	if(!inited) {
-		initSearch(magic, sizeof(magic), d1, d2);
-		inited = TRUE;
-	}
-
-	i = sizeof(magic)-1;
+	i = magiclen-1;
 	while(i < size) {
-		j = sizeof(magic)-1;
+		j = magiclen-1;
 		while(j >= 0 && (buf[i] == magic[j])) {
 			--i; --j;
 		}
@@ -168,6 +162,32 @@ SSIZE_T findMagic(unsigned char *buf, SSIZE_T size) {
 		i += max(d1[buf[i]], d2[j]);
 	}
 	return -1;
+}
+
+SSIZE_T findMagicV1(unsigned char *buf, SSIZE_T size) {
+	static char d1[256];
+	static char d2[sizeof(magicV1)];
+	static BOOL inited = FALSE;
+
+	if(!inited) {
+		initSearch(magicV1, sizeof(magicV1), d1, d2);
+		inited = TRUE;
+	}
+
+	return findMagic(magicV1, sizeof(magicV1), d1, d2, buf, size);
+}
+
+SSIZE_T findMagicV2(unsigned char *buf, SSIZE_T size) {
+	static char d1[256];
+	static char d2[sizeof(magicV2)];
+	static BOOL inited = FALSE;
+
+	if(!inited) {
+		initSearch(magicV2, sizeof(magicV2), d1, d2);
+		inited = TRUE;
+	}
+
+	return findMagic(magicV2, sizeof(magicV2), d1, d2, buf, size);
 }
 
 int wmain(int argc, WCHAR **argv) {
@@ -189,12 +209,12 @@ int wmain(int argc, WCHAR **argv) {
 
 	unsigned char *fileData;
 
-	int notMotionPhoto = 0, successPhoto = 0, successVideo = 0;
+	int magiclen = 0, notMotionPhoto = 0, successPhoto = 0, successVideo = 0;
 	int thisPhotoOK, thisVideoOK;
 
 	WCHAR msgBuf[4096];
 
-	int deleteOrig = 0, renameOrig = 0;
+	int deleteOrig = 0, renameOrig = 0, extractPhotos = 0;
 
 	FILETIME creationTime, lastWriteTime;	//we now preserve file timestamps
 	BOOL haveFileTime;	//we store the result of GetFileTime here, so if there's a problem we can skip touching new files instead of touching with bad values
@@ -212,19 +232,22 @@ int wmain(int argc, WCHAR **argv) {
 		// -d: Delete the original file when done.
 		// -q: Quiet. Puts messages on the terminal instead of dialogs. A second q shuts up terminal messages too.
 		// -r: Rename original to *_original.jpg (or delete it if combined with -d), and do not append _photo and _video to extracted.
+		// -p: Extract plain photos (do not exctract by default).
 		if(argv[i][0]==L'-' || argv[i][0]==L'/') {
-			int d=0, q=0, r=0, bad=0, j;
+			int d=0, q=0, r=0, p=0, bad=0, j;
 			for(j=1; argv[i][j] != L'\0' && !bad; j++) {
 				int ch = argv[i][j];
 				if(ch == L'd' && !d) d=1;
 				else if(ch == L'r' && !r) r=1;
+				else if(ch == L'p' && !p) p=1;
 				else if(ch == L'q' && q<2) q++;
 				else bad=1;
 			}
-			if(!bad && (d || r || q)) {
+			if(!bad && (d || r || p || q)) {
 				//this was a valid command line arg, we should save its result
 				if(d) deleteOrig = 1;
 				if(r) renameOrig = 1;
+				if(p) extractPhotos = 1;
 				if(q) msgLvl -= q;
 				if(msgLvl < 0) msgLvl = 0;
 				continue;	//don't store this as a filename, it contained only up to 1 d and 2 q's
@@ -354,9 +377,16 @@ int wmain(int argc, WCHAR **argv) {
 		}
 
 		//find the split
-		split = findMagic(fileData, bytes);
+		split = findMagicV2(fileData, bytes);
+		magiclen = sizeof(magicV2);
 
-		//if we didn't find the magic in the file, it's not a motion photo
+		//if we didn't find the magic in the file, try another magic
+		if(split < 0) {
+			split = findMagicV1(fileData, bytes);
+			magiclen = sizeof(magicV1);
+		}
+
+		//if we still didn't find the magic in the file, it's not a motion photo
 		if(split < 0) {
 			LocalFree(fileData);
 			notMotionPhoto++;
@@ -370,23 +400,25 @@ int wmain(int argc, WCHAR **argv) {
 		thisPhotoOK = thisVideoOK = 0;
 
 		//write the photo portion (before split)
-		outfile = CreateFileW(namePhoto, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-		if(outfile == INVALID_HANDLE_VALUE) {
-			err = GetLastError();
-			swprintf(msgBuf, sizeof(msgBuf)/sizeof(WCHAR), TR(SKIP_WRITE_ERROR), namePhoto);
-			ShowWin32Error(msgBuf, err);
-		} else {
-			success = WriteFile(outfile, fileData, (DWORD)split, &bytesDone, NULL);
-			err = GetLastError();
-			if(haveFileTime)
-				SetFileTime(outfile, &creationTime, NULL, &lastWriteTime);
-			CloseHandle(outfile);
-			if(success && bytesDone == (DWORD)split) {
-				successPhoto++;
-				thisPhotoOK = 1;
-			} else {
+		if(extractPhotos) {
+			outfile = CreateFileW(namePhoto, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+			if(outfile == INVALID_HANDLE_VALUE) {
+				err = GetLastError();
 				swprintf(msgBuf, sizeof(msgBuf)/sizeof(WCHAR), TR(SKIP_WRITE_ERROR), namePhoto);
 				ShowWin32Error(msgBuf, err);
+			} else {
+				success = WriteFile(outfile, fileData, (DWORD)split, &bytesDone, NULL);
+				err = GetLastError();
+				if(haveFileTime)
+					SetFileTime(outfile, &creationTime, NULL, &lastWriteTime);
+				CloseHandle(outfile);
+				if(success && bytesDone == (DWORD)split) {
+					successPhoto++;
+					thisPhotoOK = 1;
+				} else {
+					swprintf(msgBuf, sizeof(msgBuf)/sizeof(WCHAR), TR(SKIP_WRITE_ERROR), namePhoto);
+					ShowWin32Error(msgBuf, err);
+				}
 			}
 		}
 
@@ -397,12 +429,12 @@ int wmain(int argc, WCHAR **argv) {
 			swprintf(msgBuf, sizeof(msgBuf)/sizeof(WCHAR), TR(SKIP_WRITE_ERROR), nameVideo);
 			ShowWin32Error(msgBuf, err);
 		} else {
-			success = WriteFile(outfile, fileData+split+16, (DWORD)(bytes-split-16), &bytesDone, NULL);
+			success = WriteFile(outfile, fileData+split+magiclen, (DWORD)(bytes-split-magiclen), &bytesDone, NULL);
 			err = GetLastError();
 			if(haveFileTime)
 				SetFileTime(outfile, &creationTime, NULL, &lastWriteTime);
 			CloseHandle(outfile);
-			if(success && bytesDone == (DWORD)(bytes-split-16)) {
+			if(success && bytesDone == (DWORD)(bytes-split-magiclen)) {
 				successVideo++;
 				thisVideoOK = 1;
 			} else {
